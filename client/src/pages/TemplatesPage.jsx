@@ -10,8 +10,10 @@ import Table from "../components/ui/Table.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import { extractApiError } from "../app/api.js";
 import {
+  createGentleProfile,
   createTemplate,
   deleteTemplate,
+  listGentleProfiles,
   listTemplates,
   updateTemplate,
 } from "../services/templates.service.js";
@@ -24,20 +26,35 @@ const initialForm = {
   isActive: true,
 };
 
+const initialGentleForm = {
+  name: "",
+  before_due: "",
+  due_today: "",
+  after_due: "",
+  manual: "",
+};
+
 export default function TemplatesPage() {
   const [items, setItems] = useState([]);
+  const [gentleProfiles, setGentleProfiles] = useState([]);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(initialForm);
+  const [gentleForm, setGentleForm] = useState(initialGentleForm);
+  const [gentleSaving, setGentleSaving] = useState(false);
 
   async function load() {
     try {
       setLoading(true);
-      const result = await listTemplates();
-      setItems(result);
+      const [templateItems, gentleItems] = await Promise.all([
+        listTemplates(),
+        listGentleProfiles(),
+      ]);
+      setItems(templateItems);
+      setGentleProfiles(gentleItems);
       setFeedback("");
     } catch (error) {
       setFeedback(extractApiError(error, "Falha ao carregar templates."));
@@ -100,6 +117,28 @@ export default function TemplatesPage() {
       await load();
     } catch (error) {
       setFeedback(extractApiError(error, "Falha ao excluir template."));
+    }
+  }
+
+  async function handleCreateGentleProfile(event) {
+    event.preventDefault();
+    try {
+      setGentleSaving(true);
+      await createGentleProfile({
+        name: gentleForm.name,
+        phrases: {
+          before_due: gentleForm.before_due,
+          due_today: gentleForm.due_today,
+          after_due: gentleForm.after_due,
+          manual: gentleForm.manual,
+        },
+      });
+      setGentleForm(initialGentleForm);
+      await load();
+    } catch (error) {
+      setFeedback(extractApiError(error, "Falha ao criar perfil gentil."));
+    } finally {
+      setGentleSaving(false);
     }
   }
 
@@ -166,28 +205,107 @@ export default function TemplatesPage() {
 
         <Card>
           <CardHeader
-            title="Variáveis suportadas"
-            subtitle="Esses placeholders são renderizados pelo backend no envio."
+            title="Configurar templates"
+            subtitle="Perfis gentis com 4 frases para cada momento da cobrança."
           />
           <CardBody>
             <div className="stack-list">
-              <div className="token-row">
-                <code>{"{{{customerName}}}"}</code>
-                <span>Nome do cliente</span>
-              </div>
-              <div className="token-row">
-                <code>{"{{{amount}}}"}</code>
-                <span>Valor formatado em BRL</span>
-              </div>
-              <div className="token-row">
-                <code>{"{{{dueDate}}}"}</code>
-                <span>Data de vencimento</span>
-              </div>
-              <div className="token-row">
-                <code>{"{{{chargeDescription}}}"}</code>
-                <span>Descrição da cobrança</span>
-              </div>
+              {gentleProfiles.map((profile) => (
+                <div key={profile.profileKey} className="gentle-profile-card">
+                  <div className="gentle-profile-card__header">
+                    <div>
+                      <strong>{profile.name}</strong>
+                      {profile.isSystemDefault ? (
+                        <Badge tone="info" className="gentle-profile-card__badge">
+                          Default gentil
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="gentle-profile-card__grid">
+                    <div className="gentle-profile-card__item">
+                      <div className="gentle-profile-card__label">Antes do vencimento</div>
+                      <p className="gentle-profile-card__text">
+                        {profile.phrases.before_due?.content || "—"}
+                      </p>
+                    </div>
+                    <div className="gentle-profile-card__item">
+                      <div className="gentle-profile-card__label">No dia do vencimento</div>
+                      <p className="gentle-profile-card__text">
+                        {profile.phrases.due_today?.content || "—"}
+                      </p>
+                    </div>
+                    <div className="gentle-profile-card__item">
+                      <div className="gentle-profile-card__label">Após o vencimento</div>
+                      <p className="gentle-profile-card__text">
+                        {profile.phrases.after_due?.content || "—"}
+                      </p>
+                    </div>
+                    <div className="gentle-profile-card__item">
+                      <div className="gentle-profile-card__label">Disparo manual</div>
+                      <p className="gentle-profile-card__text">
+                        {profile.phrases.manual?.content || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+
+            <hr className="divider" />
+
+            <form className="form-grid" onSubmit={handleCreateGentleProfile}>
+              <Input
+                label="Nome do perfil gentil"
+                value={gentleForm.name}
+                onChange={(event) =>
+                  setGentleForm((prev) => ({ ...prev, name: event.target.value }))
+                }
+                required
+              />
+              <Textarea
+                label="Antes do vencimento"
+                rows={3}
+                value={gentleForm.before_due}
+                onChange={(event) =>
+                  setGentleForm((prev) => ({ ...prev, before_due: event.target.value }))
+                }
+                required
+              />
+              <Textarea
+                label="No dia do vencimento"
+                rows={3}
+                value={gentleForm.due_today}
+                onChange={(event) =>
+                  setGentleForm((prev) => ({ ...prev, due_today: event.target.value }))
+                }
+                required
+              />
+              <Textarea
+                label="Após o vencimento"
+                rows={3}
+                value={gentleForm.after_due}
+                onChange={(event) =>
+                  setGentleForm((prev) => ({ ...prev, after_due: event.target.value }))
+                }
+                required
+              />
+              <Textarea
+                label="Disparo manual"
+                rows={3}
+                value={gentleForm.manual}
+                onChange={(event) =>
+                  setGentleForm((prev) => ({ ...prev, manual: event.target.value }))
+                }
+                required
+              />
+
+              <div className="modal__footer">
+                <Button type="submit" loading={gentleSaving}>
+                  Salvar perfil gentil
+                </Button>
+              </div>
+            </form>
           </CardBody>
         </Card>
       </div>

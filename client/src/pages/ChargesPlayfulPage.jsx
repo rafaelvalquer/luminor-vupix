@@ -8,8 +8,9 @@ import Modal from "../components/ui/Modal.jsx";
 import Select from "../components/ui/Select.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Table from "../components/ui/Table.jsx";
-import EmptyState from "../components/ui/EmptyState.jsx";
-import ManualDispatchModal from "../components/dispatch/ManualDispatchModal.jsx";
+import PageHero from "../components/ui/PageHero.jsx";
+import FriendlyEmptyState from "../components/ui/FriendlyEmptyState.jsx";
+import FriendlyManualDispatchModal from "../components/dispatch/FriendlyManualDispatchModal.jsx";
 import { extractApiError } from "../app/api.js";
 import {
   createCharge,
@@ -33,7 +34,7 @@ const initialForm = {
   messageProfile: "profissional",
 };
 
-export default function ChargesPage() {
+export default function ChargesPlayfulPage() {
   const [items, setItems] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -60,7 +61,7 @@ export default function ChargesPage() {
       setTemplates(templateItems);
       setFeedback("");
     } catch (error) {
-      setFeedback(extractApiError(error, "Falha ao carregar cobranças."));
+      setFeedback(extractApiError(error, "Nao foi possivel carregar as cobrancas."));
     } finally {
       setLoading(false);
     }
@@ -72,12 +73,12 @@ export default function ChargesPage() {
 
   const columns = useMemo(
     () => [
-      { key: "charge", label: "Cobrança" },
+      { key: "charge", label: "Cobranca" },
       { key: "amount", label: "Valor" },
       { key: "dueDate", label: "Vencimento" },
       { key: "status", label: "Status" },
-      { key: "nextReminderAt", label: "Próximo lembrete" },
-      { key: "actions", label: "Ações" },
+      { key: "nextReminderAt", label: "Proximo lembrete" },
+      { key: "actions", label: "Acoes" },
     ],
     []
   );
@@ -126,35 +127,57 @@ export default function ChargesPage() {
       setOpen(false);
       await load();
     } catch (error) {
-      setFeedback(extractApiError(error, "Falha ao salvar cobrança."));
+      setFeedback(extractApiError(error, "Nao foi possivel salvar a cobranca."));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleMarkPaid(item) {
-    const confirmed = window.confirm(`Marcar a cobrança "${item.description}" como paga?`);
+    const confirmed = window.confirm(`Marcar a cobranca "${item.description}" como paga?`);
     if (!confirmed) return;
 
     try {
       await markChargePaid(item._id);
       await load();
     } catch (error) {
-      setFeedback(extractApiError(error, "Falha ao marcar cobrança como paga."));
+      setFeedback(extractApiError(error, "Nao foi possivel marcar como paga."));
     }
   }
 
   return (
     <div className="page-stack">
+      <PageHero
+        eyebrow="agenda bonita"
+        emoji={"\u{1F4B8}"}
+        title="Cobrancas organizadas ficam mais faceis de acompanhar e muito mais simpaticas de operar."
+        description="Crie vencimentos, acompanhe proximos lembretes e dispare mensagens sem sair do compasso da rotina."
+        badge={`${items.length} cobranca(s) na mesa`}
+        actions={
+          <Button icon={Plus} onClick={openCreate}>
+            Nova cobranca
+          </Button>
+        }
+        aside={
+          <div className="hero-aside-card">
+            <strong>{"\u{1F4CC}"} foco do dia</strong>
+            <p>Quando o cadastro esta redondinho, a cobranca deixa de ser correria e vira fluxo.</p>
+            <div className="hero-aside-card__row">
+              <span>vencidas</span>
+              <strong>{items.filter((item) => item.status === "overdue").length}</strong>
+            </div>
+            <div className="hero-aside-card__row">
+              <span>pagas</span>
+              <strong>{items.filter((item) => item.status === "paid").length}</strong>
+            </div>
+          </div>
+        }
+      />
+
       <Card>
         <CardHeader
-          title="Cobranças"
-          subtitle="Gerencie vencimentos, lembretes e ações operacionais."
-          action={
-            <Button icon={Plus} onClick={openCreate}>
-              Nova cobrança
-            </Button>
-          }
+          title="Lista de cobrancas"
+          subtitle="Tudo o que vence, o que foi pago e o que ainda pede acao aparece aqui."
         />
         <CardBody>
           <div className="filters-row">
@@ -162,13 +185,9 @@ export default function ChargesPage() {
               label="Busca"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cliente, descrição ou observação"
+              placeholder="Cliente, descricao ou observacao"
             />
-            <Select
-              label="Status"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
+            <Select label="Status" value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="">Todos</option>
               <option value="pending">Pendente</option>
               <option value="due_today">Vence hoje</option>
@@ -189,19 +208,21 @@ export default function ChargesPage() {
             columns={columns}
             data={items}
             empty={
-              <EmptyState
-                title="Nenhuma cobrança encontrada"
-                description="Crie uma cobrança ou ajuste seus filtros."
+              <FriendlyEmptyState
+                title="Nenhuma cobranca no palco"
+                description="Crie uma cobranca nova ou ajuste os filtros para reencontrar a fila certa."
+                emoji={"\u{1F381}"}
               />
             }
             renderRow={(item) => {
               const statusMeta = getChargeStatusMeta(item.status);
+
               return (
                 <tr key={item._id}>
                   <td>
                     <div className="table-strong">{item.description}</div>
                     <div className="table-muted">
-                      {item.customerId?.name || "Cliente"} · {item.notes || "Sem observações"}
+                      {item.customerId?.name || "Cliente"} - {item.notes || "Sem observacao extra."}
                     </div>
                   </td>
                   <td>{formatBRLFromCents(item.amountCents)}</td>
@@ -221,7 +242,10 @@ export default function ChargesPage() {
                       <button className="action-icon" onClick={() => setDispatchCharge(item)}>
                         <Send size={16} />
                       </button>
-                      <button className="action-icon action-icon--success" onClick={() => handleMarkPaid(item)}>
+                      <button
+                        className="action-icon action-icon--success"
+                        onClick={() => handleMarkPaid(item)}
+                      >
                         <CheckCircle2 size={16} />
                       </button>
                     </div>
@@ -236,8 +260,8 @@ export default function ChargesPage() {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "Editar cobrança" : "Nova cobrança"}
-        subtitle="Crie a cobrança base para lembretes automáticos e disparos manuais."
+        title={editing ? "Editar cobranca" : "Nova cobranca"}
+        subtitle="Crie a base que vai alimentar lembretes, historico e disparos manuais."
       >
         <form className="form-grid" onSubmit={handleSubmit}>
           <Select
@@ -255,7 +279,7 @@ export default function ChargesPage() {
           </Select>
 
           <Input
-            label="Descrição"
+            label="Descricao"
             value={form.description}
             onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
             required
@@ -279,16 +303,16 @@ export default function ChargesPage() {
           </div>
 
           <Textarea
-            label="Observações"
+            label="Observacoes"
             value={form.notes}
             onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
           />
 
           <div className="form-section">
             <div>
-              <h4>Perfil de cobrança</h4>
+              <h4>Perfil de cobranca</h4>
               <p className="field-hint">
-                Escolha o estilo de abordagem usado nas mensagens desta cobrança.
+                Escolha o estilo de abordagem usado nas mensagens desta cobranca.
               </p>
             </div>
             <div className="profile-options">
@@ -304,7 +328,7 @@ export default function ChargesPage() {
                 />
                 <div className="profile-card__content">
                   <strong>Divertido</strong>
-                  <p>Tom leve e amigável, sem perder a clareza da cobrança.</p>
+                  <p>Tom leve e amigavel, sem perder a clareza da cobranca.</p>
                 </div>
               </label>
 
@@ -324,7 +348,7 @@ export default function ChargesPage() {
                 />
                 <div className="profile-card__content">
                   <strong>Profissional</strong>
-                  <p>Tom objetivo e corporativo. Ideal como padrão mais seguro.</p>
+                  <p>Tom objetivo e corporativo. Ideal como padrao mais seguro.</p>
                 </div>
               </label>
 
@@ -343,7 +367,7 @@ export default function ChargesPage() {
                   }
                 />
                 <div className="profile-card__content">
-                  <strong>Empático</strong>
+                  <strong>Empatico</strong>
                   <p>Tom humano e conciliador, aberto a conversa.</p>
                 </div>
               </label>
@@ -351,7 +375,7 @@ export default function ChargesPage() {
           </div>
 
           <Select
-            label="Lembrete automático"
+            label="Lembrete automatico"
             value={String(form.autoReminderEnabled)}
             onChange={(event) =>
               setForm((prev) => ({
@@ -360,22 +384,22 @@ export default function ChargesPage() {
               }))
             }
           >
-            <option value="true">Habilitado</option>
-            <option value="false">Desabilitado</option>
+            <option value="true">Ligado</option>
+            <option value="false">Desligado</option>
           </Select>
 
           <div className="modal__footer">
             <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancelar
+              Fechar
             </Button>
             <Button type="submit" loading={saving}>
-              Salvar cobrança
+              Salvar cobranca
             </Button>
           </div>
         </form>
       </Modal>
 
-      <ManualDispatchModal
+      <FriendlyManualDispatchModal
         open={Boolean(dispatchCharge)}
         onClose={() => setDispatchCharge(null)}
         charge={dispatchCharge}

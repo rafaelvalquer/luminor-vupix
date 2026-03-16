@@ -721,9 +721,10 @@ app.post("/restart", requireApiKey, async (_req, res) => {
 
 app.use((error, _req, res, _next) => {
   const normalized = serializeError(error);
+  const statusCode = Number(error?.statusCode || error?.status || 500);
   log("error", "Erro não tratado", normalized);
 
-  res.status(500).json({
+  res.status(statusCode).json({
     ok: false,
     error: "internal_server_error",
     details: normalized,

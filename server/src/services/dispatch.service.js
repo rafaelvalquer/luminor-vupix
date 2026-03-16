@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import { Charge } from "../models/Charge.js";
 import { Customer } from "../models/Customer.js";
 import { MessageDispatch } from "../models/MessageDispatch.js";
@@ -10,7 +9,14 @@ import { ApiError } from "../utils/apiError.js";
 import { buildManualIdempotencyKey, buildReminderIdempotencyKey } from "../utils/idempotency.js";
 import { normalizePhone } from "../utils/phone.js";
 import { buildTemplateVariables, renderTemplate } from "../utils/templateRenderer.js";
-import { computeNextReminderAt, deriveChargeStatus } from "../utils/date.js";
+import { buildProfiledMessage, getChargeMessageProfile } from "../utils/messageProfile.js";
+import {
+  computeNextReminderAt,
+  deriveChargeStatus,
+  endOfDay,
+  normalizeCalendarDate,
+  startOfDay,
+} from "../utils/date.js";
 
 function buildTemplateSnapshot(template) {
   if (!template) {
@@ -104,8 +110,12 @@ export async function listDispatches(query = {}) {
 
   if (query.dateFrom || query.dateTo) {
     filter.createdAt = {};
-    if (query.dateFrom) filter.createdAt.$gte = new Date(query.dateFrom);
-    if (query.dateTo) filter.createdAt.$lte = new Date(query.dateTo);
+    if (query.dateFrom) {
+      filter.createdAt.$gte = startOfDay(normalizeCalendarDate(query.dateFrom));
+    }
+    if (query.dateTo) {
+      filter.createdAt.$lte = endOfDay(normalizeCalendarDate(query.dateTo));
+    }
   }
 
   const items = await MessageDispatch.find(filter)
@@ -145,6 +155,18 @@ export async function sendManualDispatch(payload, auth) {
     throw new ApiError(400, "Mensagem final não pode ser vazia.");
   }
 
+  const profile = getChargeMessageProfile(charge);
+  const profiledMessage = payload.finalMessage
+    ? baseMessage
+    : buildProfiledMessage({
+        profile,
+        baseMessage,
+        customerName: variables.customerName,
+        amount: variables.amount,
+        dueDate: variables.dueDate,
+        description: variables.chargeDescription,
+      });
+
   const phone = normalizePhone(payload.phone || customer.phone);
   const idempotencyKey = buildManualIdempotencyKey({
     chargeId: charge._id,
@@ -157,7 +179,7 @@ export async function sendManualDispatch(payload, auth) {
     chargeId: charge._id,
     customerId: customer._id,
     phone,
-    renderedMessage: baseMessage,
+    renderedMessage: profiledMessage,
     templateUsed: buildTemplateSnapshot(template),
     dispatchType: "manual",
     status: "queued",
@@ -194,7 +216,7 @@ export async function retryDispatch(dispatchId, auth) {
 }
 
 function matchReminderRule(charge, rules, now = new Date()) {
-  const dueDate = new Date(charge.dueDate);
+  const dueDate = normalizeCalendarDate(charge.dueDate);
   const daysDiff = Math.round((new Date(dueDate).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 86400000);
 
   return rules.find((rule) => {
@@ -227,7 +249,16 @@ export async function queueAndSendAutomaticReminder({ charge, customer, rules, a
   }
 
   const variables = buildTemplateVariables({ charge, customer });
-  const renderedMessage = renderTemplate(template.content, variables);
+  const baseMessage = renderTemplate(template.content, variables);
+  const profile = getChargeMessageProfile(charge);
+  const renderedMessage = buildProfiledMessage({
+    profile,
+    baseMessage,
+    customerName: variables.customerName,
+    amount: variables.amount,
+    dueDate: variables.dueDate,
+    description: variables.chargeDescription,
+  });
 
   const dispatch = await MessageDispatch.create({
     chargeId: charge._id,
@@ -279,14 +310,22 @@ export async function runReminderDispatchCycle({ limit = 100, auth = null, now =
 
     items.push(result);
 
-    if (result.skipped) skipped += 1;
-    else if (result.status === "sent") sent += 1;
-    else if (result.status === "failed") failed += 1;
-    else if (result?.status === "processing") sent += 1;
-    else if (result?.status === "queued") sent += 1;
-    else if (result?.status === "failed") failed += 1;
-    else if (result?.error) failed += 1;
-    else if (result?.status === "sent") sent += 1;
+    if (result.skipped) {
+      skipped += 1;
+      continue;
+    }
+
+    if (result.status === "sent") {
+      sent += 1;
+      continue;
+    }
+
+    if (result.status === "failed") {
+      failed += 1;
+      continue;
+    }
+
+    skipped += 1;
   }
 
   return {

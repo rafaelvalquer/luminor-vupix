@@ -1,3 +1,5 @@
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 export function startOfDay(date = new Date()) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -16,6 +18,41 @@ export function addDays(date, days) {
   return d;
 }
 
+export function normalizeCalendarDate(value) {
+  if (!value) return value;
+
+  const match =
+    typeof value === "string" ? String(value).trim().match(DATE_ONLY_PATTERN) : null;
+
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return date;
+
+  const isUtcMidnight =
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0;
+
+  if (isUtcMidnight) {
+    return new Date(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      12,
+      0,
+      0,
+      0
+    );
+  }
+
+  return date;
+}
+
 export function diffInCalendarDays(a, b) {
   const startA = startOfDay(a).getTime();
   const startB = startOfDay(b).getTime();
@@ -27,7 +64,7 @@ export function isSameDay(a, b) {
 }
 
 export function formatDateBR(date) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
+  return new Intl.DateTimeFormat("pt-BR").format(normalizeCalendarDate(date));
 }
 
 export function formatCurrencyBRLFromCents(cents) {
@@ -41,7 +78,7 @@ export function deriveChargeStatus(charge, referenceDate = new Date()) {
   const current = String(charge?.status || "pending");
   if (["paid", "cancelled"].includes(current)) return current;
 
-  const dueDate = new Date(charge?.dueDate);
+  const dueDate = normalizeCalendarDate(charge?.dueDate);
   if (Number.isNaN(dueDate.getTime())) return "pending";
 
   if (isSameDay(dueDate, referenceDate)) return "due_today";
@@ -50,7 +87,7 @@ export function deriveChargeStatus(charge, referenceDate = new Date()) {
 }
 
 export function computeNextReminderAt(charge, rules = [], referenceDate = new Date()) {
-  const dueDate = new Date(charge?.dueDate);
+  const dueDate = normalizeCalendarDate(charge?.dueDate);
   if (Number.isNaN(dueDate.getTime())) return null;
 
   const candidates = rules

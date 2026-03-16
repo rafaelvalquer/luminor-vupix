@@ -19,3 +19,13 @@ export async function deleteTemplate(id) {
   const { data } = await api.delete(`/templates/${id}`);
   return data;
 }
+
+export async function listGentleProfiles() {
+  const { data } = await api.get("/templates/gentle-profiles");
+  return data.items;
+}
+
+export async function createGentleProfile(payload) {
+  const { data } = await api.post("/templates/gentle-profiles", payload);
+  return data.item;
+}

@@ -5,11 +5,6 @@ export async function listDispatches(params = {}) {
   return data.items;
 }
 
-export async function getDispatch(id) {
-  const { data } = await api.get(`/dispatches/${id}`);
-  return data.item;
-}
-
 export async function sendManualDispatch(payload) {
   const { data } = await api.post("/dispatches/send-manual", payload);
   return data.item;

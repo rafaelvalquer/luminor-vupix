@@ -1,17 +1,28 @@
 import {
-  LayoutDashboard,
-  Users,
-  Receipt,
-  FileText,
-  MessagesSquare,
-  PlugZap,
   ChevronRight,
+  FileText,
+  LayoutDashboard,
+  MessagesSquare,
+  PanelLeftClose,
+  PlugZap,
+  Receipt,
+  Users,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const items = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/customers", label: "Clientes", icon: Users },
+  {
+    to: "/",
+    label: "Painel sorridente",
+    caption: "Resumo e clima da operacao",
+    icon: LayoutDashboard,
+  },
+  {
+    to: "/customers",
+    label: "Clientes queridos",
+    caption: "Cadastro com carinho",
+    icon: Users,
+  },
   { to: "/charges", label: "Cobranças", icon: Receipt },
   { to: "/templates", label: "Templates", icon: FileText },
   { to: "/dispatches", label: "Histórico", icon: MessagesSquare },

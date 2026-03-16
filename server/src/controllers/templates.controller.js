@@ -1,4 +1,11 @@
-import { createTemplate, deleteTemplate, listTemplates, updateTemplate } from "../services/template.service.js";
+import {
+  createGentleProfile,
+  createTemplate,
+  deleteTemplate,
+  listGentleProfiles,
+  listTemplates,
+  updateTemplate,
+} from "../services/template.service.js";
 
 export async function getTemplates(req, res) {
   const items = await listTemplates(req.query);
@@ -18,4 +25,14 @@ export async function patchTemplate(req, res) {
 export async function removeTemplate(req, res) {
   const result = await deleteTemplate(req.params.id);
   res.json({ ok: true, ...result });
+}
+
+export async function getGentleProfiles(req, res) {
+  const items = await listGentleProfiles();
+  res.json({ ok: true, items });
+}
+
+export async function postGentleProfile(req, res) {
+  const item = await createGentleProfile(req.body);
+  res.status(201).json({ ok: true, item });
 }

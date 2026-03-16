@@ -1,4 +1,5 @@
 import { Customer } from "../models/Customer.js";
+import { Charge } from "../models/Charge.js";
 import { ApiError } from "../utils/apiError.js";
 import { normalizePhone } from "../utils/phone.js";
 
@@ -63,6 +64,15 @@ export async function updateCustomer(id, payload) {
 
 export async function deleteCustomer(id) {
   const customer = await Customer.findById(id);
+  const linkedChargesCount = customer
+    ? await Charge.countDocuments({ customerId: customer._id })
+    : 0;
+  if (linkedChargesCount > 0) {
+    throw new ApiError(
+      409,
+      `Cliente possui ${linkedChargesCount} cobranca(s) vinculada(s) e nao pode ser excluido.`
+    );
+  }
   if (!customer) throw new ApiError(404, "Cliente não encontrado.");
   await customer.deleteOne();
   return { success: true };

@@ -6,6 +6,12 @@ const chargeSchema = new mongoose.Schema(
     description: { type: String, required: true, trim: true },
     amountCents: { type: Number, required: true, min: 0 },
     dueDate: { type: Date, required: true, index: true },
+    messageProfile: {
+      type: String,
+      enum: ["divertido", "profissional", "empatico"],
+      default: "profissional",
+      index: true,
+    },
     status: {
       type: String,
       enum: ["pending", "due_today", "overdue", "paid", "cancelled"],

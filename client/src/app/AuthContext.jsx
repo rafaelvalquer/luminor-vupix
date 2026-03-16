@@ -7,31 +7,23 @@ import {
   useState,
 } from "react";
 import * as AuthService from "../services/auth.service.js";
-import {
-  clearStoredToken,
-  extractApiError,
-  getStoredToken,
-  setStoredToken,
-} from "./api.js";
+import { clearStoredToken, getStoredToken, setStoredToken } from "./api.js";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [bootstrapping, setBootstrapping] = useState(true);
-  const [authError, setAuthError] = useState("");
 
   const logout = useCallback(() => {
     clearStoredToken();
     setUser(null);
-    setAuthError("");
   }, []);
 
   const refreshMe = useCallback(async () => {
     try {
       const result = await AuthService.me();
       setUser(result.user);
-      setAuthError("");
       return result.user;
     } catch (error) {
       logout();
@@ -40,17 +32,10 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   const login = useCallback(async ({ email, password }) => {
-    try {
-      const result = await AuthService.login({ email, password });
-      setStoredToken(result.token);
-      setUser(result.user);
-      setAuthError("");
-      return result;
-    } catch (error) {
-      const message = extractApiError(error, "Falha ao entrar.");
-      setAuthError(message);
-      throw error;
-    }
+    const result = await AuthService.login({ email, password });
+    setStoredToken(result.token);
+    setUser(result.user);
+    return result;
   }, []);
 
   useEffect(() => {
@@ -81,9 +66,8 @@ export function AuthProvider({ children }) {
       refreshMe,
       bootstrapping,
       isAuthenticated: Boolean(user),
-      authError,
     }),
-    [user, login, logout, refreshMe, bootstrapping, authError]
+    [user, login, logout, refreshMe, bootstrapping]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

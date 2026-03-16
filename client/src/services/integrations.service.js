@@ -9,7 +9,3 @@ export async function restartWhatsApp() {
   const { data } = await api.post("/integrations/whatsapp/restart");
   return data.item;
 }
-
-export function buildQrUrl(qrUrlFromServer) {
-  return qrUrlFromServer;
-}
